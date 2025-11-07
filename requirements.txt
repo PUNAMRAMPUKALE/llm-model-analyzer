@@ -1,0 +1,23 @@
+# Core scientific and ML stack
+numpy==1.26.4
+scipy==1.11.4
+scikit-learn==1.3.2
+torch==2.2.2
+sentence-transformers==2.2.2
+spacy==3.7.2
+nltk==3.9.1
+textstat==0.7.4
+
+# Web backend
+fastapi==0.115.5
+uvicorn==0.32.0
+pydantic==2.9.2
+orjson==3.10.7
+python-dotenv==1.0.1
+
+# Logging
+loguru==0.7.2
+
+# Development tools
+setuptools>=68.0.0
+wheel>=0.41.0
