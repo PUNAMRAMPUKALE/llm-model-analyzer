@@ -1,0 +1,12 @@
+{
+  "prompt": "List 3 pros and cons of high temperature",
+  "responses": [
+    {
+      "text": "Pros: encourages creativity and variety in answers. Cons: reduces factual accuracy and increases randomness."
+    },
+    {
+      "text": "High temperature makes models explore more tokens leading to unique but less coherent results."
+    }
+  ],
+  "config": {}
+}

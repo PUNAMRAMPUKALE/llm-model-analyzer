@@ -1,0 +1,26 @@
+ml:
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  max_seq_len: 1024
+  cache_embeddings: true
+
+metrics:
+  weights:
+    COH: 0.25   # coherence
+    COV: 0.20   # coverage vs prompt
+    RED: 0.15   # redundancy penalty (higher = better / less redundant)
+    CON: 0.15   # conciseness
+    REA: 0.10   # readability
+    HED: 0.05   # hedging penalty (higher = fewer hedges)
+    DCB: 0.10   # diversity-coherence balance
+  target_length_tokens: 220
+  conciseness_sigma: 120
+  expected_structure: []   # ["bullets","sections","code"] if you want to enforce
+
+robustness:
+  perturbations:
+    n: 3
+    types: ["synonym_swap", "stopword_drop", "order_shuffle"]
+
+server:
+  host: 0.0.0.0
+  port: 8080
