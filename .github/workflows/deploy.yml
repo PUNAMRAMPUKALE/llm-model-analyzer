@@ -1,15 +1,17 @@
 name: CI (ML service)
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: ["**"]
     paths:
-      - 'ml/**'
-      - '.github/workflows/ci-ml.yml'
+      - "ml/**"
+      - ".github/workflows/deploy.yaml"   # <— updated
   pull_request:
+    branches: ["**"]
     paths:
-      - 'ml/**'
-      - '.github/workflows/ci-ml.yml'
+      - "ml/**"
+      - ".github/workflows/deploy.yaml"   # <— updated
 
 jobs:
   build-ml:
@@ -21,10 +23,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Python
+      - name: Debug tree
+        run: |
+          pwd
+          ls -la
+          echo "------ ml/ ------"
+          ls -la ml || true
+
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install deps
         run: |
@@ -43,4 +52,4 @@ jobs:
       - name: Stop ML
         if: always()
         run: |
-          if [ -f ml.pid ]; then kill $(cat ml.pid) || true; fi
+          if [ -f ml.pid ]; then kill "$(cat ml.pid)" || true; fi
