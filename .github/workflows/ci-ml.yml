@@ -33,37 +33,18 @@ jobs:
         run: |
           set -euo pipefail
           ML_DIR=""
-          if [ -d "ml" ] && [ -f "ml/requirements.txt" ]; then
-            ML_DIR="ml"
-          elif [ -d "mlProject" ] && [ -f "mlProject/requirements.txt" ]; then
-            ML_DIR="mlProject"
-          elif [ -f "requirements.txt" ] && [ -f "app.py" ]; then
-            ML_DIR="."
+          if [ -d "ml" ] && [ -f "ml/requirements.txt" ]; then ML_DIR="ml";
+          elif [ -d "mlProject" ] && [ -f "mlProject/requirements.txt" ]; then ML_DIR="mlProject";
+          elif [ -f "requirements.txt" ] && [ -f "app.py" ]; then ML_DIR=".";
           fi
-
           if [ -z "$ML_DIR" ]; then
-            printf '%s\n' \
-              "Could not find ML directory. Expected one of:" \
+            printf '%s\n' "Could not find ML directory. Expected one of:" \
               "  * ml/ (with requirements.txt)" \
               "  * mlProject/ (with requirements.txt)" \
               "  * repo root (with requirements.txt and app.py)" >&2
-            echo "Repo tree:" >&2
-            ls -la >&2
-            exit 1
+            ls -la >&2; exit 1
           fi
-
-          echo "Detected ML dir: $ML_DIR"
           echo "ml_dir=$ML_DIR" >> "$GITHUB_OUTPUT"
-
-      - name: Debug tree
-        shell: bash
-        run: |
-          echo "pwd: $(pwd)"
-          echo "Detected dir: ${{ steps.find.outputs.ml_dir }}"
-          echo "---- repo root ----"
-          ls -la
-          echo "---- selected dir ----"
-          ls -la "${{ steps.find.outputs.ml_dir }}"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -76,12 +57,37 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # ---- NEW: cache & download NLTK data so nltk.tokenize works ----
+      - name: Cache NLTK data
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/nltk
+          key: ${{ runner.os }}-nltk-cache-v1
+
+      - name: Download NLTK resources
+        env:
+          NLTK_DATA: ~/.cache/nltk
+        run: |
+          python - <<'PY'
+          import nltk
+          # punkt_tab is required by newer NLTK; keep both for compatibility
+          for pkg in ["punkt", "punkt_tab", "stopwords", "wordnet", "omw-1.4"]:
+              try:
+                  nltk.download(pkg, quiet=True, raise_on_error=True)
+                  print("Downloaded:", pkg)
+              except Exception as e:
+                  print("Warning:", pkg, "->", e)
+          PY
+      # ----------------------------------------------------------------
+
       - name: Start ML service
         working-directory: ${{ steps.find.outputs.ml_dir }}
+        env:
+          NLTK_DATA: ~/.cache/nltk
         run: |
           uvicorn app:app --host 0.0.0.0 --port 9090 &
           echo $! > ml.pid
-          sleep 3
+          sleep 4
 
       - name: Health check
         run: curl -sf http://localhost:9090/health
