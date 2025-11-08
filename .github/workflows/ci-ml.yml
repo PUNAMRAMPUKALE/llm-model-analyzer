@@ -27,36 +27,40 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Detect where the ML service actually is
       - name: Detect ML directory
         id: find
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+          ML_DIR=""
           if [ -d "ml" ] && [ -f "ml/requirements.txt" ]; then
-            echo "ml_dir=ml" >> "$GITHUB_OUTPUT"
+            ML_DIR="ml"
           elif [ -d "mlProject" ] && [ -f "mlProject/requirements.txt" ]; then
-            echo "ml_dir=mlProject" >> "$GITHUB_OUTPUT"
+            ML_DIR="mlProject"
           elif [ -f "requirements.txt" ] && [ -f "app.py" ]; then
-            echo "ml_dir=." >> "$GITHUB_OUTPUT"
-          else
-            echo "Could not find ML service directory. Expected one of:
-            - ml/ (with requirements.txt)
-            - mlProject/ (with requirements.txt)
-            - repo root with requirements.txt and app.py" >&2
-            ls -la
+            ML_DIR="."
+          fi
+
+          if [ -z "$ML_DIR" ]; then
+            printf '%s\n' \
+              "Could not find ML directory. Expected one of:" \
+              "  * ml/ (with requirements.txt)" \
+              "  * mlProject/ (with requirements.txt)" \
+              "  * repo root (with requirements.txt and app.py)" >&2
+            echo "Repo tree:" >&2
+            ls -la >&2
             exit 1
           fi
-          echo "Detected ML dir: ${ML_DIR:-$(cat <<EOF
-${{ steps.find.outputs.ml_dir }}
-EOF
-)}"
+
+          echo "Detected ML dir: $ML_DIR"
+          echo "ml_dir=$ML_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Debug tree
         shell: bash
         run: |
           echo "pwd: $(pwd)"
-          echo "Detected: ${{ steps.find.outputs.ml_dir }}"
+          echo "Detected dir: ${{ steps.find.outputs.ml_dir }}"
+          echo "---- repo root ----"
           ls -la
           echo "---- selected dir ----"
           ls -la "${{ steps.find.outputs.ml_dir }}"
