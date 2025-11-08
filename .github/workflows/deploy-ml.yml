@@ -1,99 +1,46 @@
-name: CI (build + prisma + smoke test)
+name: CI (ML service)
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'ml/**'
+      - '.github/workflows/ci-ml.yml'
   pull_request:
+    paths:
+      - 'ml/**'
+      - '.github/workflows/ci-ml.yml'
 
 jobs:
-  build:
+  build-ml:
     runs-on: ubuntu-latest
-
-    # Ephemeral Postgres service (lives only for this job)
-    services:
-      postgres:
-        image: postgres:16-alpine
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: ci_db
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
-
-    env:
-      # Prisma will target the CI Postgres above
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ci_db?schema=public
-      PORT: 4000
-      LLM_PROVIDER: mock
-      METRICS_SERVICE_URL: http://localhost:9090  # not used in this CI, just a placeholder
+    defaults:
+      run:
+        working-directory: ml
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 20
-          cache: 'pnpm'
+          python-version: '3.12'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.18.3
-          run_install: false
-
-      - name: Enable corepack
-        run: corepack enable
-
-      # Uses your committed pnpm-lock.yaml (deterministic)
       - name: Install deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Prisma generate
-        run: pnpm prisma:generate
-
-      - name: Wait for Postgres to be ready
         run: |
-          for i in {1..60}; do
-            if pg_isready -h localhost -p 5432 -U postgres; then
-              echo "Postgres is ready"; exit 0
-            fi
-            echo "Waiting for Postgres... ($i/60)"; sleep 2
-          done
-          echo "Postgres did not become ready in time"; exit 1
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Apply migrations
-        run: pnpm db:migrate:deploy
-
-      - name: Build (TypeScript -> dist)
-        env:
-          NODE_ENV: production
-        run: pnpm build
-
-      # ---- Optional smoke-run to prove the server actually starts ----
-      - name: Start server in background
+      - name: Start ML service
         run: |
-          node dist/server.js &
-          echo $! > server.pid
-          sleep 3
+          uvicorn app:app --host 0.0.0.0 --port 9090 &
+          echo $! > ml.pid
+          sleep 2
 
-      - name: Hit /health
-        run: curl -sf http://localhost:4000/health
+      - name: Health check
+        run: curl -sf http://localhost:9090/health
 
-      - name: Stop server
+      - name: Stop ML
         if: always()
         run: |
-          if [ -f server.pid ]; then kill $(cat server.pid) || true; fi
-
-      # Keep build artifacts (optional)
-      - name: Upload dist as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist
+          if [ -f ml.pid ]; then kill $(cat ml.pid) || true; fi
