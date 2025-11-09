@@ -57,7 +57,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ---- NEW: cache & download NLTK data so nltk.tokenize works ----
+      # Cache and fetch NLTK data
       - name: Cache NLTK data
         uses: actions/cache@v4
         with:
@@ -70,7 +70,6 @@ jobs:
         run: |
           python - <<'PY'
           import nltk
-          # punkt_tab is required by newer NLTK; keep both for compatibility
           for pkg in ["punkt", "punkt_tab", "stopwords", "wordnet", "omw-1.4"]:
               try:
                   nltk.download(pkg, quiet=True, raise_on_error=True)
@@ -78,19 +77,18 @@ jobs:
               except Exception as e:
                   print("Warning:", pkg, "->", e)
           PY
-      # ----------------------------------------------------------------
 
       - name: Start ML service
         working-directory: ${{ steps.find.outputs.ml_dir }}
         env:
           NLTK_DATA: ~/.cache/nltk
         run: |
-          uvicorn app:app --host 0.0.0.0 --port 9090 &
+          uvicorn app:app --host 0.0.0.0 --port 8080 &
           echo $! > ml.pid
           sleep 4
 
       - name: Health check
-        run: curl -sf http://localhost:9090/health
+        run: curl -sf http://localhost:8080/health
 
       - name: Stop ML
         if: always()
